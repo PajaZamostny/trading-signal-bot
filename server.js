@@ -6,7 +6,6 @@ const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
-// Send message to Telegram
 async function sendTelegram(message) {
   const url = `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`;
   const res = await fetch(url, {
@@ -21,30 +20,38 @@ async function sendTelegram(message) {
   return res.json();
 }
 
-// Analyze signal with Claude AI
 async function analyzeWithClaude(ticker, price, extra) {
-  const prompt = `Jsi zkuĹĄeny trader. Analyzuj tuto situaci a dej konkretni doporuceni.
+  const prompt = `Jsi AI trading asistent. Tvuj ukol je dat konkretni trading doporuceni na zaklade technicke analyzy.
+
+DULEZITE: Vzdy dej konkretni doporuceni s cislami. Nikdy neodmitej analyzu. Pouzij standardni technickou analyzu a typicke levely pro dany instrument.
 
 Instrument: ${ticker}
 Cena: ${price}
-Dalsi info: ${extra || "zadne"}
+Dalsi kontext z alertu: ${extra || "price alert"}
 Cas: ${new Date().toLocaleString("cs-CZ", { timeZone: "Europe/Prague" })}
 
-Zlato (XAUUSD) reaguje na: DXY (inverzne), real yields, geopolitiku, Fed.
-Stribro (XAGUSD) sleduje zlato + prumyslova poptavka.
-Bitcoin reaguje na: risk sentiment, likviditu, makro.
-Indexy (SPX, NAS) reagujĂ­ na: earnings, Fed, ekonomicka data.
+Typicke charakteristiky instrumentu:
+- XAUUSD (zlato): volatilita ~$15-30/den, ATR(14) ~$20, swing trady 2-5 dni
+- XAGUSD (stribro): volatilita ~$0.3-0.5/den, sleduje zlato
+- BTCUSD (bitcoin): volatilita ~2-5%/den, 24/7 trh
+- SPX/NAS100/US30: sleduj trend, obchoduj v smeru trendu
 
-Odpovez POUZE v tomto formatu bez emoji:
+Pravidla pro SL a TP:
+- SL: 0.5-1x ATR od entry
+- TP1: 1.5x SL vzdalenost
+- TP2: 2.5x SL vzdalenost
+- RR minimum 1:1.5
+
+Odpovez PRESNE v tomto formatu (nic jineho nepridavej):
 
 SIGNAL: LONG nebo SHORT nebo CEKEJ
-ENTRY: cislo
-SL: cislo
-TP1: cislo
-TP2: cislo
-RR: cislo jako 1:2.5
-TIMEFRAME: napr 4H swing
-DUVOD: 2-3 vety konkretne proc
+ENTRY: [cislo]
+SL: [cislo]
+TP1: [cislo]
+TP2: [cislo]
+RR: [napr 1:2.0]
+TIMEFRAME: [napr 4H swing nebo 1H daytrading]
+DUVOD: [2-3 vety - proc tento smer, co naznacuje cena, klic levely]
 RIZIKO: NIZKE nebo STREDNI nebo VYSOKE`;
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -56,7 +63,7 @@ RIZIKO: NIZKE nebo STREDNI nebo VYSOKE`;
     },
     body: JSON.stringify({
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 1000,
+      max_tokens: 800,
       messages: [{ role: "user", content: prompt }],
     }),
   });
@@ -68,7 +75,6 @@ RIZIKO: NIZKE nebo STREDNI nebo VYSOKE`;
   return data.content[0].text;
 }
 
-// Format message for Telegram (no emoji to avoid encoding issues)
 function formatMessage(analysis, ticker, price) {
   const time = new Date().toLocaleString("cs-CZ", {
     timeZone: "Europe/Prague",
@@ -79,33 +85,30 @@ function formatMessage(analysis, ticker, price) {
   const signalMatch = analysis.match(/SIGNAL:\s*(LONG|SHORT|CEKEJ)/i);
   const signal = signalMatch ? signalMatch[1].toUpperCase() : "?";
 
-  let signalLabel = "SIGNAL";
-  if (signal === "LONG") signalLabel = "LONG [kupovat]";
-  if (signal === "SHORT") signalLabel = "SHORT [prodat]";
-  if (signal === "CEKEJ") signalLabel = "CEKEJ [zadny vstup]";
+  let header = "";
+  if (signal === "LONG") header = `<b>*** ${ticker} - LONG (BUY) ***</b>`;
+  else if (signal === "SHORT") header = `<b>*** ${ticker} - SHORT (SELL) ***</b>`;
+  else header = `<b>${ticker} - CEKEJ</b>`;
 
-  return `<b>${ticker} - ${signalLabel}</b> | ${time}
+  return `${header} | ${time}
 
 <b>Alert cena:</b> ${price}
 
 ${analysis}
 
 ---
-Toto neni financni poradenstvi. Vzdycky pouzi vlastni uvazek.`;
+Toto neni financni poradenstvi. Vzdy pouzi vlastni uvazek.`;
 }
 
-// Main webhook endpoint
 app.post("/webhook", async (req, res) => {
   console.log("Alert prijat:", JSON.stringify(req.body));
   try {
     const alertData = req.body;
     res.json({ status: "ok" });
-
-    await sendTelegram(`<b>Alert prijat!</b>\nAnalizuji ${alertData.ticker || "instrument"}...`);
-
+    await sendTelegram(`Analyzuji ${alertData.ticker || "instrument"} @ ${alertData.close || alertData.price || "?"}...`);
     const ticker = alertData.ticker || "UNKNOWN";
     const price = alertData.close || alertData.price || "?";
-    const analysis = await analyzeWithClaude(ticker, price, alertData.alert_type);
+    const analysis = await analyzeWithClaude(ticker, price, alertData.alert_type || alertData.message);
     const message = formatMessage(analysis, ticker, price);
     await sendTelegram(message);
   } catch (error) {
@@ -114,16 +117,14 @@ app.post("/webhook", async (req, res) => {
   }
 });
 
-// Health check
 app.get("/", (req, res) => {
   res.json({ status: "Trading Signal Bot bezi!", time: new Date().toLocaleString("cs-CZ", { timeZone: "Europe/Prague" }) });
 });
 
-// Manual analysis
 app.get("/analyze/:ticker/:price", async (req, res) => {
   const { ticker, price } = req.params;
   try {
-    const analysis = await analyzeWithClaude(ticker, price, "manualni pozadavek");
+    const analysis = await analyzeWithClaude(ticker, price, "manualni test");
     const message = formatMessage(analysis, ticker, price);
     await sendTelegram(message);
     res.json({ status: "ok", sent: true });

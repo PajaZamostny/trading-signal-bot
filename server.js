@@ -132,11 +132,56 @@ app.get("/analyze/:ticker/:price", async (req, res) => {
   const { ticker, price } = req.params;
   try {
     const alertData = { ticker, price, alert_type: "manual request" };
-    const analysis = await analyzeWithClaude(alertData);
+
+    // Call Anthropic API
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 1000,
+        messages: [
+          {
+            role: "user",
+            content: `Jsi zkušený trader specializující se na zlato (XAUUSD), stříbro (XAGUSD), Bitcoin (BTCUSD) a indexy.
+
+Přišel manuální požadavek na analýzu:
+- Instrument: ${ticker}
+- Cena: ${price}
+- Čas: ${new Date().toLocaleString("cs-CZ", { timeZone: "Europe/Prague" })}
+
+Odpověz POUZE v tomto formátu:
+
+SIGNAL: [LONG/SHORT/ČEKEJ]
+ENTRY: [cena nebo "market"]
+SL: [cena stop lossu]
+TP1: [první target]
+TP2: [druhý target]
+RR: [risk/reward ratio]
+TIMEFRAME: [doporučený timeframe]
+DŮVOD: [2-3 věty vysvětlení]
+RIZIKO: [NÍZKÉ/STŘEDNÍ/VYSOKÉ]`,
+          },
+        ],
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!data.content || !data.content[0]) {
+      throw new Error("Anthropic API nevrátilo odpověď: " + JSON.stringify(data));
+    }
+
+    const analysis = data.content[0].text;
     const message = formatMessage(analysis, alertData);
     await sendTelegram(message);
     res.json({ status: "ok", sent: true });
   } catch (error) {
+    console.error("Chyba v /analyze:", error);
     res.json({ status: "error", error: error.message });
   }
 });

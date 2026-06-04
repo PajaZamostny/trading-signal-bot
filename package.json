@@ -1,0 +1,15 @@
+{
+  "name": "trading-signal-bot",
+  "version": "1.0.0",
+  "description": "AI trading signal bot pro zlato, stříbro, bitcoin a indexy",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -23,28 +23,28 @@ async function sendTelegram(message) {
 
 // Analyze signal with Claude AI
 async function analyzeWithClaude(alertData) {
-  const prompt = `Jsi zkušený trader specializující se na zlato (XAUUSD), stříbro (XAGUSD), Bitcoin (BTCUSD) a indexy (SPX, NAS100, US30).
+  const prompt = `Jsi zkuĹĄenĂ˝ trader specializujĂ­cĂ­ se na zlato (XAUUSD), stĹĂ­bro (XAGUSD), Bitcoin (BTCUSD) a indexy (SPX, NAS100, US30).
 
-Přišel alert z TradingView s těmito daty:
-- Instrument: ${alertData.ticker || "neznámý"}
-- Timeframe: ${alertData.timeframe || "neznámý"}
-- Cena: ${alertData.close || alertData.price || "neznámá"}
+PĹiĹĄel alert z TradingView s tÄmito daty:
+- Instrument: ${alertData.ticker || "neznĂĄmĂ˝"}
+- Timeframe: ${alertData.timeframe || "neznĂĄmĂ˝"}
+- Cena: ${alertData.close || alertData.price || "neznĂĄmĂĄ"}
 - Typ alertu: ${alertData.alert_type || alertData.message || "price alert"}
-- Čas: ${new Date().toLocaleString("cs-CZ", { timeZone: "Europe/Prague" })}
+- Äas: ${new Date().toLocaleString("cs-CZ", { timeZone: "Europe/Prague" })}
 
-Analyzuj situaci a odpověz POUZE v tomto formátu (nic jiného nepřidávej):
+Analyzuj situaci a odpovÄz POUZE v tomto formĂĄtu (nic jinĂŠho nepĹidĂĄvej):
 
-SIGNAL: [LONG/SHORT/ČEKEJ]
+SIGNAL: [LONG/SHORT/ÄEKEJ]
 ENTRY: [cena nebo "market"]
 SL: [cena stop lossu]
-TP1: [první target]
-TP2: [druhý target]
+TP1: [prvnĂ­ target]
+TP2: [druhĂ˝ target]
 RR: [risk/reward ratio]
-TIMEFRAME: [doporučený timeframe pro tento trade]
-DŮVOD: [2-3 věty vysvětlení - technická situace, makro kontext, proč právě teď]
-RIZIKO: [NÍZKÉ/STŘEDNÍ/VYSOKÉ]
+TIMEFRAME: [doporuÄenĂ˝ timeframe pro tento trade]
+DĹŽVOD: [2-3 vÄty vysvÄtlenĂ­ - technickĂĄ situace, makro kontext, proÄ prĂĄvÄ teÄ]
+RIZIKO: [NĂZKĂ/STĹEDNĂ/VYSOKĂ]
 
-Buď konkrétní s čísly. SL a TP urči podle ATR, klíčových levelů a logiky trhu. Pokud situace není vhodná pro vstup, řekni ČEKEJ a vysvětli proč.`;
+BuÄ konkrĂŠtnĂ­ s ÄĂ­sly. SL a TP urÄi podle ATR, klĂ­ÄovĂ˝ch levelĹŻ a logiky trhu. Pokud situace nenĂ­ vhodnĂĄ pro vstup, Ĺekni ÄEKEJ a vysvÄtli proÄ.`;
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -54,7 +54,7 @@ Buď konkrétní s čísly. SL a TP urči podle ATR, klíčových levelů a logi
       "anthropic-version": "2023-06-01",
     },
     body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-haiku-4-5-20251001",
       max_tokens: 1000,
       messages: [{ role: "user", content: prompt }],
     }),
@@ -75,26 +75,26 @@ function formatMessage(analysis, alertData) {
   });
 
   // Parse signal type for emoji
-  const signalMatch = analysis.match(/SIGNAL:\s*(LONG|SHORT|ČEKEJ)/i);
+  const signalMatch = analysis.match(/SIGNAL:\s*(LONG|SHORT|ÄEKEJ)/i);
   const signal = signalMatch ? signalMatch[1].toUpperCase() : "?";
 
-  let emoji = "⏳";
-  if (signal === "LONG") emoji = "🟢";
-  if (signal === "SHORT") emoji = "🔴";
+  let emoji = "âł";
+  if (signal === "LONG") emoji = "đ˘";
+  if (signal === "SHORT") emoji = "đ´";
 
-  return `${emoji} <b>${ticker} – ${signal}</b> | ${time}
+  return `${emoji} <b>${ticker} â ${signal}</b> | ${time}
 
-<b>📊 Alert cena:</b> ${price}
+<b>đ Alert cena:</b> ${price}
 
 ${analysis}
 
-──────────────────
-⚠️ <i>Toto není finanční poradenství. Vždy použi vlastní úsudek.</i>`;
+ââââââââââââââââââ
+â ď¸ <i>Toto nenĂ­ finanÄnĂ­ poradenstvĂ­. VĹždy pouĹži vlastnĂ­ Ăşsudek.</i>`;
 }
 
 // Main webhook endpoint - TradingView sends alerts here
 app.post("/webhook", async (req, res) => {
-  console.log("📨 Alert přijat:", JSON.stringify(req.body));
+  console.log("đ¨ Alert pĹijat:", JSON.stringify(req.body));
 
   try {
     const alertData = req.body;
@@ -104,7 +104,7 @@ app.post("/webhook", async (req, res) => {
 
     // Notify that we received alert
     await sendTelegram(
-      `📡 <b>Alert přijat!</b>\n🔍 Analyzuji ${alertData.ticker || "instrument"}...`
+      `đĄ <b>Alert pĹijat!</b>\nđ Analyzuji ${alertData.ticker || "instrument"}...`
     );
 
     // Analyze with Claude
@@ -115,14 +115,14 @@ app.post("/webhook", async (req, res) => {
     await sendTelegram(message);
   } catch (error) {
     console.error("Chyba:", error);
-    await sendTelegram(`❌ Chyba při zpracování alertu: ${error.message}`);
+    await sendTelegram(`â Chyba pĹi zpracovĂĄnĂ­ alertu: ${error.message}`);
   }
 });
 
 // Health check
 app.get("/", (req, res) => {
   res.json({
-    status: "✅ Trading Signal Bot běží!",
+    status: "â Trading Signal Bot bÄĹžĂ­!",
     time: new Date().toLocaleString("cs-CZ", { timeZone: "Europe/Prague" }),
   });
 });
@@ -142,29 +142,29 @@ app.get("/analyze/:ticker/:price", async (req, res) => {
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
+        model: "claude-haiku-4-5-20251001",
         max_tokens: 1000,
         messages: [
           {
             role: "user",
-            content: `Jsi zkušený trader specializující se na zlato (XAUUSD), stříbro (XAGUSD), Bitcoin (BTCUSD) a indexy.
+            content: `Jsi zkuĹĄenĂ˝ trader specializujĂ­cĂ­ se na zlato (XAUUSD), stĹĂ­bro (XAGUSD), Bitcoin (BTCUSD) a indexy.
 
-Přišel manuální požadavek na analýzu:
+PĹiĹĄel manuĂĄlnĂ­ poĹžadavek na analĂ˝zu:
 - Instrument: ${ticker}
 - Cena: ${price}
-- Čas: ${new Date().toLocaleString("cs-CZ", { timeZone: "Europe/Prague" })}
+- Äas: ${new Date().toLocaleString("cs-CZ", { timeZone: "Europe/Prague" })}
 
-Odpověz POUZE v tomto formátu:
+OdpovÄz POUZE v tomto formĂĄtu:
 
-SIGNAL: [LONG/SHORT/ČEKEJ]
+SIGNAL: [LONG/SHORT/ÄEKEJ]
 ENTRY: [cena nebo "market"]
 SL: [cena stop lossu]
-TP1: [první target]
-TP2: [druhý target]
+TP1: [prvnĂ­ target]
+TP2: [druhĂ˝ target]
 RR: [risk/reward ratio]
-TIMEFRAME: [doporučený timeframe]
-DŮVOD: [2-3 věty vysvětlení]
-RIZIKO: [NÍZKÉ/STŘEDNÍ/VYSOKÉ]`,
+TIMEFRAME: [doporuÄenĂ˝ timeframe]
+DĹŽVOD: [2-3 vÄty vysvÄtlenĂ­]
+RIZIKO: [NĂZKĂ/STĹEDNĂ/VYSOKĂ]`,
           },
         ],
       }),
@@ -173,7 +173,7 @@ RIZIKO: [NÍZKÉ/STŘEDNÍ/VYSOKÉ]`,
     const data = await response.json();
 
     if (!data.content || !data.content[0]) {
-      throw new Error("Anthropic API nevrátilo odpověď: " + JSON.stringify(data));
+      throw new Error("Anthropic API nevrĂĄtilo odpovÄÄ: " + JSON.stringify(data));
     }
 
     const analysis = data.content[0].text;
@@ -188,5 +188,5 @@ RIZIKO: [NÍZKÉ/STŘEDNÍ/VYSOKÉ]`,
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`🚀 Server běží na portu ${PORT}`);
+  console.log(`đ Server bÄĹžĂ­ na portu ${PORT}`);
 });
